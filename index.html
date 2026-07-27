@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analysis of the Advantages and Disadvantages of Debian 13 (Trixie) — SysDocs</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+<style>
+  :root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --border: #334155;
+    --text: #cbd5e1;
+    --text-muted: #64748b;
+    --text-faint: #334155;
+    --accent: #38bdf8;
+    --code-bg: #0b0f19;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    margin: 0;
+    padding: 0;
+  }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 20px;
+    background-color: #0b0f19;
+  }
+  .nav-container {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .logo {
+    font-weight: 700;
+    color: #f8fafc;
+    letter-spacing: 0.05em;
+  }
+  .logo span { color: var(--accent); }
+
+  .main-layout {
+    display: flex;
+    max-width: 1100px;
+    margin: 40px auto;
+    padding: 0 20px;
+    gap: 40px;
+  }
+
+  .content {
+    flex: 1;
+    max-width: 760px;
+  }
+
+  h1.article-title {
+    font-size: 2.25rem;
+    color: #f8fafc;
+    line-height: 1.3;
+    margin-bottom: 24px;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+    color: #f1f5f9;
+    margin-top: 40px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+  }
+
+  p { margin-bottom: 20px; text-align: justify; }
+
+  /* Сайдбар */
+  .sidebar {
+    width: 260px;
+    flex-shrink: 0;
+  }
+  @media (max-width: 850px) {
+    .main-layout { flex-direction: column; }
+    .sidebar { width: 100%; }
+  }
+
+  .widget {
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .widget-title {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+  .meta-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+  }
+  .meta-list li {
+    padding: 6px 0;
+    border-bottom: 1px solid #273549;
+  }
+  .meta-list li:last-child { border-bottom: none; }
+
+  .hidden-hint-container {
+    margin-top: 15px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+    font-family: monospace;
+    font-size: 0.75rem;
+  }
+  .hint-label { color: var(--text-muted); display: block; }
+  .hint-value {
+    color: var(--text-faint);
+    transition: color 0.3s ease;
+  }
+  .hidden-hint-container:hover .hint-value {
+    color: var(--text-muted);
+  }
+
+  /* Терминальный слой */
+  .lock-layer {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 23, 42, 0.92);
+    backdrop-filter: blur(6px);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease;
+    z-index: 999;
+    padding: 20px;
+  }
+  .lock-layer.active {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .terminal-panel {
+    background: var(--code-bg);
+    border: 1px solid #22c55e;
+    border-radius: 8px;
+    padding: 25px;
+    width: 100%;
+    max-width: 600px; /* Увеличено для удобства */
+    box-shadow: 0 20px 50px rgba(0,0,0,0.7);
+    font-family: "Courier New", Courier, monospace;
+  }
+  .terminal-header {
+    color: #22c55e;
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #14532d;
+    padding-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .terminal-title { font-weight: bold; letter-spacing: 0.05em; }
+
+  .input-shell {
+    margin-bottom: 15px;
+  }
+  input[type="password"] {
+    width: 100%;
+    padding: 12px;
+    background: #020617;
+    border: 1px solid #14532d;
+    color: #22c55e;
+    font-size: 1rem;
+    outline: none;
+    font-family: inherit;
+    border-radius: 4px;
+  }
+  input[type="password"]:focus {
+    border-color: #22c55e;
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.2);
+  }
+
+  button.term-btn {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #22c55e;
+    background: transparent;
+    color: #22c55e;
+    font-size: 0.95rem;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: bold;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+  button.term-btn:hover {
+    background: #22c55e;
+    color: #020617;
+  }
+
+  .term-hint {
+    margin-top: 10px;
+    font-size: 0.85rem;
+    color: #f43f5e;
+    min-height: 20px;
+  }
+
+  /* Окно результатов расшифровки */
+  #output-wrapper {
+    display: none;
+    margin-top: 20px;
+    border: 1px solid #22c55e;
+    border-radius: 6px;
+    background: #020617;
+    overflow: hidden;
+  }
+
+  .output-bar {
+    background: #092e15;
+    padding: 8px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #14532d;
+  }
+
+  .output-bar span {
+    font-size: 0.8rem;
+    color: #4ade80;
+    font-weight: bold;
+  }
+
+  .copy-btn {
+    background: #22c55e;
+    color: #020617;
+    border: none;
+    padding: 5px 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: background 0.2s;
+    font-family: inherit;
+  }
+
+  .copy-btn:hover {
+    background: #4ade80;
+  }
+
+  #output {
+    padding: 15px;
+    color: #4ade80;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 350px;
+    overflow-y: auto;
+  }
+
+  .close-terminal {
+    background: none;
+    border: none;
+    color: #64748b;
+    cursor: pointer;
+    font-size: 1.2rem;
+    line-height: 1;
+  }
+  .close-terminal:hover { color: #f43f5e; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav-container">
+    <div class="logo">SYS<span>DOCS</span></div>
+    <div style="font-size: 0.85rem; color: var(--text-muted);">Repository v13.0.4</div>
+  </div>
+</header>
+
+<div class="main-layout">
+  <main class="content">
+    <h1 class="article-title" id="secureTrigger">Analysis of the Advantages and Disadvantages of Debian 13 (Trixie)</h1>
+    
+    <p>Debian 13, officially released on August 9, 2025, under the codename "Trixie," represents the latest stable iteration of the Debian GNU/Linux operating system. In accordance with the project's established development methodology, this release incorporates a comprehensive set of updates while maintaining the core principles of stability, security, and free software distribution. The present document provides a structured examination of the principal advantages and disadvantages associated with the deployment of Debian 13 in enterprise, server, and desktop environments.</p>
+
+    <h2>Primary Support & Architecture Advantages</h2>
+    <p>Among the primary advantages is the enhanced long-term support framework. Debian 13 is projected to receive security updates and maintenance for a period of five years, extending potentially through extended long-term support mechanisms up to approximately 2030. This timeframe facilitates predictable planning for organizational infrastructure, minimizing the frequency of disruptive migration cycles. Furthermore, the distribution features a modernized Linux kernel (version 6.12 series), which delivers improved hardware compatibility, including official support for the 64-bit RISC-V architecture. Such advancements are of particular relevance to contemporary server deployments and emerging hardware platforms.</p>
+
+    <h2>Desktop Environment Upgrades</h2>
+    <p>Desktop environment updates constitute another notable benefit. Debian 13 includes Plasma 6 for KDE users, alongside updated versions of GNOME, Xfce 4.20, and LXQt 2.1.0. These environments benefit from better Wayland session support, refined fractional scaling, and enhanced compatibility with modern graphics drivers, including improvements for NVIDIA hardware. The overall package repository has been expanded, encompassing over 69,800 packages, with more than 14,100 new additions and significant updates to critical components such as LibreOffice, Python 3.13, PHP 8.4, and PostgreSQL 17. Security enhancements, including hardening measures against ROP and related attacks on arm64, along with default configurations such as mounting /tmp as tmpfs, contribute to a more robust operational posture.</p>
+
+    <h2>Server Operational Benefits</h2>
+    <p>In server contexts, Debian 13 offers a reliable foundation with updated libraries and tools that support contemporary workloads while preserving the distribution's reputation for minimal maintenance requirements once deployed. The Advanced Package Tool (APT) 3.0 further streamlines package management procedures.</p>
+
+    <h2>Disadvantages & Release Methodology Limitations</h2>
+    <p>Nevertheless, certain disadvantages warrant careful consideration prior to adoption. The conservative selection of package versions, inherent to Debian's release philosophy, results in software that may lag behind the latest upstream releases available in rolling-release distributions. This characteristic, while promoting stability, can necessitate additional configuration or backporting for users requiring cutting-edge features or performance optimizations.</p>
+
+    <p>Upgrade processes from prior versions, such as Debian 12 "Bookworm," may encounter compatibility challenges. Release notes document multiple points of attention, including changes to network interface naming, modifications in OpenSSH and database handling (e.g., RabbitMQ and MariaDB), deprecation of certain architectures (reduced i386 support and removal of MIPS), and adjustments to system directories and services. Organizations operating critical production systems are advised to conduct thorough testing in non-production environments to mitigate potential disruptions.</p>
+
+    <p>Additionally, while desktop improvements are evident, users transitioning from other distributions may observe that some modern applications or proprietary software ecosystems function more seamlessly on platforms with more aggressive update cadences. The initial point releases following launch may also require the application of subsequent updates to address minor residual issues.</p>
+
+    <h2>Conclusion</h2>
+    <p>In summary, Debian 13 "Trixie" provides a balanced and dependable computing platform suitable for environments prioritizing reliability, security, and sustained support over immediate access to the newest software iterations. Potential adopters should evaluate their specific operational requirements against the outlined advantages and limitations, with particular emphasis on compatibility testing for upgrades. The distribution remains a cornerstone choice for both server infrastructure and stable desktop deployments, in line with the Debian project's longstanding commitment to quality and predictability.</p>
+  </main>
+
+  <aside class="sidebar">
+    <div class="widget">
+      <div class="widget-title">Document Info</div>
+      <ul class="meta-list">
+        <li><strong>Status:</strong> Verified Stable</li>
+        <li><strong>Published:</strong> 2025-08-09</li>
+        <li><strong>Category:</strong> Linux Systems</li>
+        <li><strong>Format:</strong> Reference Specs</li>
+      </ul>
+      
+      <div class="hidden-hint-container">
+        <span class="hint-label">Layout Token Checksum:</span>
+        <span class="hint-value">Structure Integrity Check X2</span>
+      </div>
+    </div>
+    
+    <div class="widget">
+      <div class="widget-title">Navigation</div>
+      <ul class="meta-list" style="color: var(--accent); cursor: pointer;">
+        <li>• Distribution Overview</li>
+        <li>• Package Tree Changes</li>
+        <li>• Core Hardware Support</li>
+      </ul>
+    </div>
+  </aside>
+</div>
+
+<!-- Окно терминала -->
+<div class="lock-layer" id="lockLayer">
+  <div class="terminal-panel">
+    <div class="terminal-header">
+      <span class="terminal-title">AUTH_GATE // DECRYPT_MODULE</span>
+      <button class="close-terminal" id="closeBtn">✕</button>
+    </div>
+
+    <div id="lock-screen">
+      <div class="input-shell">
+        <input type="password" id="pass-input" placeholder="Enter root passphrase..." autocomplete="off">
+      </div>
+      <button class="term-btn" onclick="unlock()">RUN DECRYPT</button>
+      <div class="term-hint" id="hint"></div>
+    </div>
+
+    <!-- Область отображения расшифрованного текста -->
+    <div id="output-wrapper">
+      <div class="output-bar">
+        <span>DECRYPTED_PAYLOAD</span>
+        <button class="copy-btn" id="copyResultBtn" onclick="copyDecryptedText()">📋 Скопировать</button>
+      </div>
+      <div id="output"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Зашифрованная строка.
+  // Теперь ее можно разбивать на несколько строк или использовать любые кавычки
+  const encryptedData = `
+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
+  `;
+
+  function unlock() {
+    const password = document.getElementById('pass-input').value;
+    const outputWrapper = document.getElementById('output-wrapper');
+    const outputDiv = document.getElementById('output');
+    const lockScreen = document.getElementById('lock-screen');
+    const hint = document.getElementById('hint');
+
+    // Очищаем строку от переносов, пробелов и кавычек
+    const cleanedCipher = encryptedData.replace(/[\s\r\n"']/g, '');
+
+    try {
+      const bytes = CryptoJS.AES.decrypt(cleanedCipher, password);
+      const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+
+      if (decrypted) {
+        outputDiv.innerText = decrypted;
+        outputWrapper.style.display = 'block';
+        lockScreen.style.display = 'none';
+        hint.textContent = '';
+      } else {
+        hint.textContent = 'STATUS_ERR: Invalid cryptographic key.';
+      }
+    } catch (e) {
+      hint.textContent = 'STATUS_ERR: Decryption failure.';
+    }
+  }
+
+  function copyDecryptedText() {
+    const outputText = document.getElementById('output').innerText;
+    const copyBtn = document.getElementById('copyResultBtn');
+
+    navigator.clipboard.writeText(outputText).then(() => {
+      copyBtn.textContent = '✅ Скопировано!';
+      setTimeout(() => {
+        copyBtn.textContent = '📋 Скопировать';
+      }, 2000);
+    });
+  }
+
+  // Нажатие Enter и сброс ошибки
+  document.getElementById('pass-input').addEventListener('keydown', function(e){
+    if(e.key === 'Enter') unlock();
+  });
+  document.getElementById('pass-input').addEventListener('input', function(){
+    document.getElementById('hint').textContent = '';
+  });
+
+  // Логика клика по заголовку (4 клика для открытия)
+  (function setupHiddenTrigger(){
+    const trigger = document.getElementById('secureTrigger');
+    const lockLayer = document.getElementById('lockLayer');
+    const closeBtn = document.getElementById('closeBtn');
+    const REQUIRED_CLICKS = 5;
+    const RESET_MS = 800;
+
+    let clickCount = 0;
+    let resetTimer = null;
+
+    trigger.addEventListener('click', function(){
+      clickCount++;
+      clearTimeout(resetTimer);
+
+      if(clickCount >= REQUIRED_CLICKS){
+        clickCount = 0;
+        lockLayer.classList.add('active');
+        setTimeout(() => document.getElementById('pass-input').focus(), 150);
+        return;
+      }
+
+      resetTimer = setTimeout(() => { clickCount = 0; }, RESET_MS);
+    });
+
+    closeBtn.addEventListener('click', function(){
+      lockLayer.classList.remove('active');
+      document.getElementById('pass-input').value = '';
+      document.getElementById('output-wrapper').style.display = 'none';
+      document.getElementById('lock-screen').style.display = 'block';
+      document.getElementById('hint').textContent = '';
+    });
+  })();
+</script>
+
+</body>
+</html>
